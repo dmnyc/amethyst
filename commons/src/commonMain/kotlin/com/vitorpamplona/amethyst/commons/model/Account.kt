@@ -182,6 +182,7 @@ import com.vitorpamplona.amethyst.commons.relayClient.auth.RelayAuthVenues
 import com.vitorpamplona.amethyst.commons.relayClient.chatDelivery.ChatDeliveryTracker
 import com.vitorpamplona.amethyst.commons.relayClient.nip47WalletConnect.NWCPaymentFilterAssembler
 import com.vitorpamplona.amethyst.commons.relayClient.notify.NotifyRequestsCache
+import com.vitorpamplona.amethyst.commons.relayClient.polls.results.pollBroadcastTargets
 import com.vitorpamplona.amethyst.commons.relayClient.subscriptions.ExplainedFilter
 import com.vitorpamplona.amethyst.commons.relayClient.subscriptions.SubPurpose
 import com.vitorpamplona.amethyst.commons.relayClient.user.UserFinderAccount
@@ -2705,7 +2706,18 @@ class Account(
 
             cache.justConsumeMyOwnEvent(signedEvent)
 
-            client.publish(signedEvent, computeRelayListToBroadcast(signedEvent))
+            // NIP-88: the vote must reach the poll's `relay` tags, the canonical home
+            // respondents are asked to use, so every conforming reader counts it. The
+            // voter's outbox rides along so the voter keeps a copy, and a poll without
+            // `relay` tags substitutes the author's inbox relays.
+            val targets =
+                pollBroadcastTargets(
+                    voterOutbox = computeRelayListToBroadcast(signedEvent),
+                    pollRelays = event.relays(),
+                    authorInbox = pollNote.author?.inboxRelays().orEmpty(),
+                )
+
+            client.publish(signedEvent, targets)
         }
     }
 
